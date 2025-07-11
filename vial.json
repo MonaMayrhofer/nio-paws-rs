@@ -1,0 +1,25 @@
+{
+  "name": "nio-paws",
+  "vendorId": "0xfeed",
+  "productId": "0xbeef",
+  "lighting": "none",
+  "matrix": {
+    "rows": 4,
+    "cols": 3
+  },
+  "layouts": {
+    "keymap": [
+      ["0,0", "0,1", "0,2"],
+      ["1,0", "1,1", "1,2"],
+      ["2,0", "2,1", "2,2"],
+      [
+        {
+          "y": -2,
+          "x": 4
+        },
+        "3,0",
+        "3,2"
+      ]
+    ]
+  }
+}
