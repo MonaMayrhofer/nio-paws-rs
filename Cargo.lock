@@ -588,6 +588,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dummy-pin"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c38a4cc2cb15bb5c6105aa0ff207c478741add66acc8b42df637d7c2f9ba252"
+dependencies = [
+ "embedded-hal 1.0.0",
+]
+
+[[package]]
 name = "elliptic-curve"
 version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -608,13 +617,14 @@ dependencies = [
 
 [[package]]
 name = "embassy-embedded-hal"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41fea5ef5bed4d3468dfd44f5c9fa4cda8f54c86d4fb4ae683eacf9d39e2ea12"
+checksum = "8578db196d74db92efdd5ebc546736dac1685499ee245b22eff92fa5e4b57945"
 dependencies = [
- "defmt 0.3.100",
+ "defmt 1.0.1",
  "embassy-futures",
- "embassy-sync 0.6.2",
+ "embassy-hal-internal 0.3.0",
+ "embassy-sync 0.7.0",
  "embassy-time",
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0",
@@ -671,6 +681,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "embassy-hal-internal"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95285007a91b619dc9f26ea8f55452aa6c60f7115a4edc05085cd2bd3127cd7a"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "embassy-net-driver"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -704,7 +723,7 @@ dependencies = [
  "defmt 0.3.100",
  "document-features",
  "embassy-embedded-hal",
- "embassy-hal-internal",
+ "embassy-hal-internal 0.2.0",
  "embassy-sync 0.6.2",
  "embassy-time",
  "embassy-usb-driver",
@@ -738,7 +757,7 @@ dependencies = [
  "document-features",
  "embassy-embedded-hal",
  "embassy-futures",
- "embassy-hal-internal",
+ "embassy-hal-internal 0.2.0",
  "embassy-net-driver",
  "embassy-sync 0.6.2",
  "embassy-time",
@@ -1379,13 +1398,17 @@ dependencies = [
  "cortex-m-rt",
  "defmt 1.0.1",
  "defmt-rtt",
+ "dummy-pin",
+ "embassy-embedded-hal",
  "embassy-executor",
  "embassy-stm32",
+ "embassy-sync 0.7.0",
  "embassy-time",
  "json",
  "panic-probe",
  "rmk",
  "static_cell",
+ "w25",
  "xz2",
 ]
 
@@ -2217,6 +2240,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de437e2a6208b014ab52972a27e59b33fa2920d3e00fe05026167a1c509d19cc"
 dependencies = [
  "vcell",
+]
+
+[[package]]
+name = "w25"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8d862fe806e9fedc04359f17e363d9b2c6d61c2b9acaf2bdb0060d30b032b09"
+dependencies = [
+ "defmt 1.0.1",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "embedded-storage",
+ "embedded-storage-async",
 ]
 
 [[package]]
