@@ -53,21 +53,23 @@ async fn main(_spawner: Spawner) {
         use embassy_stm32::rcc::*;
         let mut config = embassy_stm32::Config::default();
         config.rcc.hse = Some(Hse {
-            freq: Hertz(8_000_000),
+            freq: Hertz(25_000_000),
             mode: HseMode::Oscillator,
         });
         config.rcc.pll_src = PllSource::HSE;
         config.rcc.pll = Some(Pll {
-            prediv: PllPreDiv::DIV4,
-            mul: PllMul::MUL168,
-            divp: Some(PllPDiv::DIV2), // 8mhz / 4 * 168 / 2 = 168Mhz.
-            divq: Some(PllQDiv::DIV7), // 8mhz / 4 * 168 / 7 = 48Mhz.
+            prediv: PllPreDiv::DIV25,
+            mul: PllMul::MUL336,
+            divp: Some(PllPDiv::DIV4), // 8mhz / 4 * 168 / 4 = 84Mhz. (=MAX SYSCLK FREQENCY FOR f401)
+            divq: Some(PllQDiv::DIV7), // 8mhz / 4 * 168 / 7 = 48Mhz. (=Needed for clk48)
+            // divp: Some(PllPDiv::DIV2), // 8mhz / 4 * 168 / 4 = 84Mhz. (=MAX SYSCLK FREQENCY FOR f401)
+            // divq: Some(PllQDiv::DIV2), // 8mhz / 4 * 168 / 7 = 48Mhz. (=Needed for clk48)
             divr: None,
         });
         config.rcc.ahb_pre = AHBPrescaler::DIV1;
         config.rcc.apb1_pre = APBPrescaler::DIV4;
         config.rcc.apb2_pre = APBPrescaler::DIV2;
-        config.rcc.sys = Sysclk::HSE;
+        config.rcc.sys = Sysclk::PLL1_P;
         config.rcc.mux.clk48sel = mux::Clk48sel::PLL1_Q;
         config
     };
@@ -80,6 +82,11 @@ async fn main(_spawner: Spawner) {
     // Usb config
     static EP_OUT_BUFFER: StaticCell<[u8; 1024]> = StaticCell::new();
     let mut usb_config = embassy_stm32::usb::Config::default();
+
+    // Do not enable vbus_detection. This is a safe default that works in all boards.
+    // However, if your USB device is self-powered (can stay powered on if USB is unplugged), you need
+    // to enable vbus_detection to comply with the USB spec. If you enable it, the board
+    // has to support it or USB won't work at all. See docs on `vbus_detection` for details.
     usb_config.vbus_detection = false;
     let driver = Driver::new_fs(
         p.USB_OTG_FS,

@@ -54,6 +54,12 @@ test = false
 bench = false
 
 [[bin]]
+name = "scratch"
+path = "src/scratch.rs"
+test = false
+bench = false
+
+[[bin]]
 name = "peripheral"
 path = "src/peripheral.rs"
 test = false
