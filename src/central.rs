@@ -6,6 +6,10 @@ mod macros;
 mod keymap;
 mod vial;
 
+use crate::keymap::{
+    LEFT_COL, LEFT_COL_OFFSET, LEFT_ROW, LEFT_ROW_OFFSET, RIGHT_COL_OFFSET, RIGHT_ROW_OFFSET,
+    TOTAL_COL, TOTAL_ROW,
+};
 use defmt::info;
 use dummy_pin::DummyPin;
 use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
@@ -15,39 +19,33 @@ use embassy_stm32::mode::Async;
 use embassy_stm32::peripherals::USB_OTG_FS;
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::time::Hertz;
+use embassy_stm32::usart::{BufferedInterruptHandler, BufferedUart};
 use embassy_stm32::usb::{Driver, InterruptHandler};
-use embassy_stm32::{Config, bind_interrupts};
+use embassy_stm32::{bind_interrupts, peripherals, usart};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
-use embassy_time::Timer;
-use keymap::{COL, ROW};
 use rmk::channel::EVENT_CHANNEL;
 use rmk::config::{BehaviorConfig, ControllerConfig, RmkConfig, StorageConfig, VialConfig};
 use rmk::debounce::default_debouncer::DefaultDebouncer;
-use rmk::futures::future::join3;
+use rmk::futures::future::join4;
 use rmk::input_device::Runnable;
 use rmk::keyboard::Keyboard;
 use rmk::light::LightController;
-use rmk::matrix::Matrix;
+use rmk::split::central::{CentralMatrix, run_peripheral_manager};
 use rmk::{initialize_keymap_and_storage, run_devices, run_rmk};
 use static_cell::StaticCell;
 use vial::{VIAL_KEYBOARD_DEF, VIAL_KEYBOARD_ID};
 use w25::W25;
+
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => InterruptHandler<USB_OTG_FS>;
+    USART2 => BufferedInterruptHandler<peripherals::USART2>;
 });
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    // info!("RMK start!");
-
-    // loop {
-    //     info!("YAY!");
-    //     Timer::after_secs(1).await;
-    // }
-
     // RCC config
     let config = {
         use embassy_stm32::rcc::*;
@@ -62,8 +60,6 @@ async fn main(_spawner: Spawner) {
             mul: PllMul::MUL336,
             divp: Some(PllPDiv::DIV4), // 8mhz / 4 * 168 / 4 = 84Mhz. (=MAX SYSCLK FREQENCY FOR f401)
             divq: Some(PllQDiv::DIV7), // 8mhz / 4 * 168 / 7 = 48Mhz. (=Needed for clk48)
-            // divp: Some(PllPDiv::DIV2), // 8mhz / 4 * 168 / 4 = 84Mhz. (=MAX SYSCLK FREQENCY FOR f401)
-            // divq: Some(PllQDiv::DIV2), // 8mhz / 4 * 168 / 7 = 48Mhz. (=Needed for clk48)
             divr: None,
         });
         config.rcc.ahb_pre = AHBPrescaler::DIV1;
@@ -99,23 +95,16 @@ async fn main(_spawner: Spawner) {
 
     // Pin config
     // COL 2 ROW
-    //let (input_pins, output_pins) = config_matrix_pins_stm32!(peripherals: p, input: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12], output: [PB0, PA1, PB3, PB4, PB5]);
-    //Change B3 and B4 to A2 and A3 because they seem to clash with jtag?
-    let (input_pins, output_pins) = config_matrix_pins_stm32!(peripherals: p, input: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12], output: [PB0, PA1, PA2, PA3, PB5]);
+    let (input_pins, output_pins) = config_matrix_pins_stm32!(peripherals: p,
+        input: [PB0, PA1, PB3, PB4, PB5],
+        output: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12]
+    );
 
     //A4: Select
     //A5: SCK
     //A6: MISO
     //A7: MOSI
-
-    // Use internal flash to emulate eeprom
-    // The SOIC8 port at the bottom of the blackpill does not provide pins for the hold/wp pins, and hardwires them to 3.3V
-    // and the W25 driver doesn't do anything with those pins.
-    //Capacity = 64MBit = 8MByte
-
     static SPI_BUS: StaticCell<Mutex<NoopRawMutex, Spi<'static, Async>>> = StaticCell::new();
-
-    //let spi = Spi::new_blocking(p.SPI1, p.PA5, p.PA7, p.PA6, spi::Config::default());
     let spi = Spi::new(
         p.SPI1,
         p.PA5,
@@ -142,16 +131,10 @@ async fn main(_spawner: Spawner) {
     };
 
     // Initialize the storage and keymap
+    info!("Initializing storage and keymap");
     let mut default_keymap = keymap::get_default_keymap();
     let behavior_config = BehaviorConfig::default();
     let storage_config = StorageConfig::default();
-
-    // loop {
-    //     info!("YAY!");
-    //     Timer::after_secs(1).await;
-    // }
-
-    info!("Initializing storage and keymap");
     let (keymap, mut storage) = initialize_keymap_and_storage(
         &mut default_keymap,
         flash_chip,
@@ -162,9 +145,14 @@ async fn main(_spawner: Spawner) {
     info!("Initialized storage and keymap");
 
     // Initialize the matrix + keyboard
-    let debouncer = DefaultDebouncer::<COL, ROW>::new();
-    let mut matrix = Matrix::<_, _, _, COL, ROW>::new(input_pins, output_pins, debouncer);
-    let mut keyboard = Keyboard::new(&keymap);
+    let debouncer = DefaultDebouncer::<LEFT_ROW, LEFT_COL>::new();
+    let mut matrix =
+        CentralMatrix::<_, _, _, LEFT_ROW_OFFSET, LEFT_COL_OFFSET, LEFT_ROW, LEFT_COL>::new(
+            input_pins,
+            output_pins,
+            debouncer,
+        );
+    let mut keyboard = Keyboard::<TOTAL_ROW, TOTAL_COL, _, _>::new(&keymap);
 
     info!("Created Keyboard");
 
@@ -172,13 +160,30 @@ async fn main(_spawner: Spawner) {
     let mut light_controller: LightController<Output> =
         LightController::new(ControllerConfig::default().light_config);
 
+    // Initilize UART
+    static UART_OUT_BUFFER: StaticCell<[u8; 64]> = StaticCell::new();
+    static UART_IN_BUFFER: StaticCell<[u8; 64]> = StaticCell::new();
+    let uart = BufferedUart::new(
+        p.USART2,
+        Irqs,
+        p.PA3,
+        p.PA2,
+        &mut UART_OUT_BUFFER.init([0; 64])[..],
+        &mut UART_IN_BUFFER.init([0; 64])[..],
+        usart::Config::default(),
+    )
+    .unwrap();
+
     info!("Starting!");
     // Start
-    join3(
+    join4(
         run_devices! (
             (matrix) => EVENT_CHANNEL,
         ),
         keyboard.run(),
+        run_peripheral_manager::<LEFT_ROW, LEFT_COL, RIGHT_ROW_OFFSET, RIGHT_COL_OFFSET, _>(
+            0, uart,
+        ),
         run_rmk(
             &keymap,
             driver,

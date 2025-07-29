@@ -6,4 +6,4 @@ runner = "probe-rs run --chip STM32F401CCUX"
 target = "thumbv7em-none-eabi" # Cortex-M0 and Cortex-M0+
 
 [env]
-DEFMT_LOG = "trace"
+DEFMT_LOG = "debug"
