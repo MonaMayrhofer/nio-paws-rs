@@ -25,7 +25,9 @@ use embassy_stm32::{bind_interrupts, peripherals, usart};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use rmk::channel::EVENT_CHANNEL;
-use rmk::config::{BehaviorConfig, ControllerConfig, RmkConfig, StorageConfig, VialConfig};
+use rmk::config::{
+    BehaviorConfig, ControllerConfig, KeyboardUsbConfig, RmkConfig, StorageConfig, VialConfig,
+};
 use rmk::debounce::default_debouncer::DefaultDebouncer;
 use rmk::futures::future::join4;
 use rmk::input_device::Runnable;
@@ -96,8 +98,11 @@ async fn main(_spawner: Spawner) {
     // Pin config
     // COL 2 ROW
     let (input_pins, output_pins) = config_matrix_pins_stm32!(peripherals: p,
-        input: [PB0, PA1, PB3, PB4, PB5],
-        output: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12]
+        // input: [PB0, PA1, PB3, PB4, PB5],
+        // output: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12]
+
+        input: [PA8, PA15, PB3, PB4, PB0],
+        output: [PB13, PB8, PB7, PB6, PB12, PB14, PB15, PB9]
     );
 
     //A4: Select
@@ -127,6 +132,13 @@ async fn main(_spawner: Spawner) {
     // Keyboard config
     let rmk_config = RmkConfig {
         vial_config: VialConfig::new(VIAL_KEYBOARD_ID, VIAL_KEYBOARD_DEF),
+        usb_config: KeyboardUsbConfig {
+            vid: 0xfeed,
+            pid: 0xbef2,
+            manufacturer: "Nionidh",
+            product_name: "Nio Paws 2",
+            serial_number: "vial:f64c2b3c:000001",
+        },
         ..Default::default()
     };
 

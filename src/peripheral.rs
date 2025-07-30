@@ -62,6 +62,9 @@ async fn main(_spawner: Spawner) {
     // Pin config
     // COL 2 ROW
     let (input_pins, output_pins) = config_matrix_pins_stm32!(peripherals: p,
+        // input: [PB0, PA1, PB3, PB4, PB5],
+        // output: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12]
+
         input: [PB0, PA1, PB3, PB4, PB5],
         output: [PB9, PB15, PB14, PB13, PB6, PB7, PB8, PB12]
     );
