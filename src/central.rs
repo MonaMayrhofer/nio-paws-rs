@@ -146,7 +146,11 @@ async fn main(_spawner: Spawner) {
     info!("Initializing storage and keymap");
     let mut default_keymap = keymap::get_default_keymap();
     let behavior_config = BehaviorConfig::default();
-    let storage_config = StorageConfig::default();
+    let storage_config = StorageConfig {
+        start_addr: 4096,
+        num_sectors: 8,
+        clear_storage: true,
+    };
     let (keymap, mut storage) = initialize_keymap_and_storage(
         &mut default_keymap,
         flash_chip,
